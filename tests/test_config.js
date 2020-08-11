@@ -9,6 +9,9 @@ const qConfig = {
   endpoint: {
     // ElasticMQ wants "queue" there rather than an account id
     endpoint: `http://${snsHost}:${snsPort}/`,
+    accessKeyId: 'key',
+    secretAccessKey: 'secret',
+    sessionToken: 'token',
   },
   contextFunction(context, message) {
     return {
