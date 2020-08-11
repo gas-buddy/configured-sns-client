@@ -1,0 +1,4 @@
+build/
+# Wercker
+.wercker
+coverage
