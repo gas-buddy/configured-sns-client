@@ -40,7 +40,7 @@ export default class ConfiguredSNSClient extends EventEmitter {
         this.config.baseTopicArn = topic.split(':').slice(0, 5).join(':');
       } catch (error) {
         // Need to create a topic to find it...
-        const name = uuid();
+        const name = `gb-bootstrap-${uuid()}`;
         const newTopic = await this.createTopic(context, name);
         this.config.baseTopicArn = newTopic.TopicArn.split(':').slice(0, 5).join(':');
         await this.snsClient.deleteTopic({ TopicArn: newTopic.TopicArn }).promise();
