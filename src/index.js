@@ -1,3 +1,4 @@
+import { v4 as uuid } from 'uuid';
 import { EventEmitter } from 'events';
 import { SNS } from 'aws-sdk';
 
@@ -31,11 +32,19 @@ export default class ConfiguredSNSClient extends EventEmitter {
     }
   }
 
-  async start() {
+  async start(context) {
     if (!this.config.baseTopicArn) {
-      const result = await this.snsClient.listTopics().promise();
-      const { Topics: [{ TopicArn: topic }] } = result;
-      this.config.baseTopicArn = topic.split(':').slice(0, 5).join(':');
+      try {
+        const result = await this.snsClient.listTopics().promise();
+        const { Topics: [{ TopicArn: topic }] } = result;
+        this.config.baseTopicArn = topic.split(':').slice(0, 5).join(':');
+      } catch (error) {
+        // Need to create a topic to find it...
+        const name = uuid();
+        const newTopic = await this.createTopic(context, name);
+        this.config.baseTopicArn = newTopic.TopicArn.split(':').slice(0, 5).join(':');
+        await this.snsClient.deleteTopic({ TopicArn: newTopic.TopicArn }).promise();
+      }
     }
   }
 
