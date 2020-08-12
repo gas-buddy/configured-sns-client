@@ -82,4 +82,16 @@ export default class ConfiguredSNSClient extends EventEmitter {
     }).promise();
     return r.SubscriptionArn;
   }
+
+  async listSubscriptionsByTopic(context, topic, { nextToken, limit = 1000 } = {}) {
+    const { NextToken, Subscriptions } = await this.snsClient.listSubscriptionsByTopic({
+      TopicArn: this.getTopicArn(topic),
+      NextToken: nextToken || undefined,
+    }).promise();
+    const remaining = limit - Subscriptions?.length || 0;
+    if (NextToken && remaining) {
+      return Subscriptions.concat(await this.listSubscriptionsByTopic(context, topic, { nextToken: NextToken, limit: remaining }));
+    }
+    return Subscriptions;
+  }
 }
