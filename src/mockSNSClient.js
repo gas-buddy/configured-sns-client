@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { v4 as uuid } from 'uuid';
 import { messageHandlerFunc, buildMessage } from './util';
 
 export class MockSNSClient extends EventEmitter {

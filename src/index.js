@@ -1,4 +1,3 @@
-import { v4 as uuid } from 'uuid';
 import { EventEmitter } from 'events';
 import { SNS, STS } from 'aws-sdk';
 import { buildMessage } from './util';
