@@ -1,9 +1,10 @@
 import { v4 as uuid } from 'uuid';
 import { EventEmitter } from 'events';
 import { SNS, STS } from 'aws-sdk';
+import { buildMessage } from './util';
 
 const ENDPOINT_CONFIG = Symbol('SQS Endpoint Config');
-export { mockSNSClient } from './mockSNSClient';
+export { MockSNSClient } from './mockSNSClient';
 
 export default class ConfiguredSNSClient extends EventEmitter {
   constructor(context, config) {
@@ -63,21 +64,7 @@ export default class ConfiguredSNSClient extends EventEmitter {
   }
 
   async publish(context, topic, message, options = {}) {
-    const { MessageAttributes, correlationid, ...restOfOptions } = options;
-    const correlationId = correlationid || context.headers?.correlationid || uuid();
-    const attributes = {
-      CorrelationId: {
-        DataType: 'String',
-        StringValue: correlationId,
-      },
-      ...MessageAttributes,
-    };
-    const args = {
-      TopicArn: this.getTopicArn(topic),
-      Message: JSON.stringify(message),
-      MessageAttributes: attributes,
-      ...restOfOptions,
-    };
+    const args = buildMessage(context, { topicArn: this.getTopicArn(topic), message, options });
     return this.snsClient.publish(args).promise();
   }
 
