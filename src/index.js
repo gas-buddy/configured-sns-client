@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { SNS, STS } from 'aws-sdk';
 
 const ENDPOINT_CONFIG = Symbol('SQS Endpoint Config');
+export { mockSNSClient } from './mockSNSClient';
 
 export default class ConfiguredSNSClient extends EventEmitter {
   constructor(context, config) {
