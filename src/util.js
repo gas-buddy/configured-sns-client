@@ -20,7 +20,7 @@ export function messageHandlerFunc(context, snsClient, handler) {
     try {
       parsedMessage = JSON.parse(Message);
     } catch (error) {
-      logger.error('Failed to parse SQS Body as JSON', errorWrap(error));
+      logger.error('Failed to parse SNS Message as JSON', errorWrap(error));
       snsClient.emit('error', callInfo);
       throw error;
     }
