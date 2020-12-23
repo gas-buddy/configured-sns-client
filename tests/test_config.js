@@ -6,6 +6,7 @@ const snsPort = process.env.SNS_PORT || 9911;
 
 const qConfig = {
   region: 'us-east-1',
+  accountId: '123456789012',
   endpoint: {
     // ElasticMQ wants "queue" there rather than an account id
     endpoint: `http://${snsHost}:${snsPort}/`,

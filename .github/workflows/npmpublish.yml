@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     services:
-      sqs-mock:
+      sns-mock:
         image: gasbuddy/sns-mock
         ports:
           - 9911:9911

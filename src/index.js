@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import { EventEmitter } from 'events';
-import { SNS } from 'aws-sdk';
+import { SNS, STS } from 'aws-sdk';
 
 const ENDPOINT_CONFIG = Symbol('SQS Endpoint Config');
 
@@ -10,8 +10,11 @@ export default class ConfiguredSNSClient extends EventEmitter {
 
     this.config = config;
     this.logger = context.logger;
-    const { endpoint, accountId, region } = config;
-
+    const { endpoint, accountId, region, assumedRole } = config;
+    if (!accountId) {
+      throw new Error('accountId is required to configure SNS client');
+    }
+    let finalConfig = {};
     if (endpoint || region) {
       let defaultEp = endpoint;
       if (typeof endpoint === 'string') {
@@ -21,31 +24,34 @@ export default class ConfiguredSNSClient extends EventEmitter {
         endpoint: defaultEp?.endpoint || 'unspecified',
         region,
       });
-      this.snsClient = new SNS({
-        region,
-        ...defaultEp,
-      });
+      finalConfig = { region, ...defaultEp };
+      this.snsClient = new SNS(finalConfig);
       this.snsClient[ENDPOINT_CONFIG] = {
-        endpoint: defaultEp?.endpoint,
+        ...finalConfig,
         accountId,
       };
     }
+    if (!this.snsClient) {
+      throw new Error(`Failed to create SNS client for ${JSON.stringify(finalConfig)}`);
+    }
+    if (assumedRole) {
+      this.assumedRole = assumedRole;
+    }
   }
 
-  async start(context) {
-    if (!this.config.baseTopicArn) {
-      try {
-        const result = await this.snsClient.listTopics().promise();
-        const { Topics: [{ TopicArn: topic }] } = result;
-        this.config.baseTopicArn = topic.split(':').slice(0, 5).join(':');
-      } catch (error) {
-        // Need to create a topic to find it...
-        const name = `gb-bootstrap-${uuid()}`;
-        const newTopic = await this.createTopic(context, name);
-        this.config.baseTopicArn = newTopic.TopicArn.split(':').slice(0, 5).join(':');
-        await this.snsClient.deleteTopic({ TopicArn: newTopic.TopicArn }).promise();
+  async start() {
+    if (this.assumedRole) {
+      const sts = new STS({ apiVersion: '2011-06-15' });
+      const { Arn: actualRoleArn } = await sts.getCallerIdentity({}).promise();
+      if (!(actualRoleArn.includes(this.assumedRole))) {
+        throw new Error(`Role ${actualRoleArn} is expected to contain ${this.assumedRole}`);
       }
     }
+    if (!this.config.baseTopicArn) {
+      const { accountId, region, partition = 'aws' } = this.config;
+      this.config.baseTopicArn = `arn:${partition}:sns:${region}:${accountId}`;
+    }
+    return this;
   }
 
   getTopicArn(name) {
@@ -56,10 +62,20 @@ export default class ConfiguredSNSClient extends EventEmitter {
   }
 
   async publish(context, topic, message, options = {}) {
+    const { MessageAttributes, correlationid, ...restOfOptions } = options;
+    const correlationId = correlationid || context.headers?.correlationid || uuid();
+    const attributes = {
+      CorrelationId: {
+        DataType: 'String',
+        StringValue: correlationId,
+      },
+      ...MessageAttributes,
+    };
     const args = {
       TopicArn: this.getTopicArn(topic),
       Message: JSON.stringify(message),
-      ...options,
+      MessageAttributes: attributes,
+      ...restOfOptions,
     };
     return this.snsClient.publish(args).promise();
   }
