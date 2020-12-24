@@ -1,8 +1,10 @@
 import { EventEmitter } from 'events';
-import { v4 as uuid } from 'uuid';
+import { messageHandlerFunc, buildMessage } from './util';
 
-export class MockSQSClient extends EventEmitter {
+export class MockSNSClient extends EventEmitter {
   publishMocks = {};
+
+  config = {};
 
   async publish(context, topic, message, options = {}) {
     const mock = this.publishMocks[topic] || {};
@@ -10,20 +12,8 @@ export class MockSQSClient extends EventEmitter {
     if (!fn) {
       (context.gb?.logger || context.logger || console).warn('Publishing to mock topic with no subscriber');
     } else {
-      const virtualMessage = {
-        Type: 'Notification',
-        MessageId: uuid(),
-        TopicArn: `arn:aws:sns:us-east-1:123:${topic}`,
-        Message: JSON.stringify(message),
-        MessageAttributes: {
-          correlationid: {
-            DataType: 'String',
-            StringValue: options.correlationid || context?.headers?.correlationid || 'mock-correlation-id',
-          },
-          ...options,
-        },
-      };
-      await fn(context, virtualMessage);
+      const args = buildMessage(context, { topicArn: `arn:aws:sns:us-east-1:123:${topic}`, message, options });
+      await messageHandlerFunc(context, this, fn)(args);
     }
   }
 
@@ -33,8 +23,9 @@ export class MockSQSClient extends EventEmitter {
   }
 
   async mockSubscribeTopic(context, topic, handler) {
-    const mock = this.publishMocks[topic];
+    const mock = this.publishMocks[topic] || {};
     mock.subscriber = handler;
+    this.publishMocks[topic] = mock;
   }
 
   resetMocks() {
